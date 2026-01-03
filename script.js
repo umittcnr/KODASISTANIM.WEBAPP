@@ -104,7 +104,7 @@ require(['vs/editor/editor.main'], function () {
     document.getElementById('languageSelector')?.addEventListener('change', changeLanguage);
 });
 
-// --- CORE LOGIC: PARSER (Improved for Data-Driven & Variable Detection) ---
+// --- CORE LOGIC: PARSER (Fixed: Absolute Prompt Capture) ---
 
 function initiateExecution() {
     const code = editor.getValue();
@@ -132,11 +132,14 @@ function analyzeCodeStructure(code) {
     const inputs = []; 
     let matrixStructure = null;
     
-    let lastPrint = null; // Başlangıçta null
-    const printRegex = /(?:print|Write)(?:ln)?\s*\(\s*["'](.*?)["']\s*\)/;
+    let lastPrint = null; 
+    // GÜNCELLEME: Regex artık çok daha esnek.
+    // print("... ile başlayan ve tırnak içinde biten her şeyi yakalar.
+    // [^"]* kısmı tırnak hariç her şey demek.
+    const printRegex = /(?:print|Write)(?:ln|f)?\s*\(\s*["']([^"']*)["']/;
     const inputRegex = /(\.next|input\(|ReadLine|cin\s*>>|fmt\.Scan)/;
     
-    // 1. Matris Yapısı (Boyut Değişkenlerini Bul)
+    // 1. Matris Yapısı
     const arrayRegex = /new\s+\w+\s*\[\s*(.*?)\s*\](?:\s*\[\s*(.*?)\s*\])?(?:\s*\[\s*(.*?)\s*\])?/;
     const arrayMatch = code.match(arrayRegex);
 
@@ -172,41 +175,36 @@ function analyzeCodeStructure(code) {
         if (cleanLine.includes("System.in")) continue;
         if (!cleanLine) continue;
 
-        // Prompt Yakalama (Varsa)
+        // Prompt Yakalama (GELİŞMİŞ)
         const pMatch = line.match(printRegex);
         if (pMatch) {
-            const pText = pMatch[1].toLowerCase();
-            if (matrixStructure && (pText.includes("matris") || pText.includes("dizi") || pText.includes("stok") || pText.includes("eleman"))) {
-                lastPrint = null; 
-            } else {
-                lastPrint = pMatch[1];
-            }
+            // Yakalanan metin (tırnak içi)
+            lastPrint = pMatch[1];
         }
 
         // Input Yakalama
         if (inputRegex.test(line)) {
-            // Döngü kontrolü: Eğer boyut belirleyen bir değişkense, döngü içinde olsa bile al!
             const loopCheck = /for\s*\(|while\s*\(/.test(line) || braceLevel > 2;
             
-            // Değişken ataması analizi: "int satir =" veya "satir ="
             const assignmentMatch = line.match(/(?:int|double|long|var)?\s*(\w+)\s*=\s*/);
             let varName = assignmentMatch ? assignmentMatch[1] : null;
 
-            // Eğer bu değişken matris boyutlarından biriyse, KESİNLİKLE input olarak al.
             let isDim = false;
             if (varName && dimVars.has(varName)) {
                 isDim = true;
             }
 
-            // Döngü içindeyse ve boyut değişkeni değilse, bunu matris verisi varsay ve atla.
             if (loopCheck && !isDim) {
                 lastPrint = null; 
                 continue; 
             }
 
+            // Etiket Belirleme Önceliği:
+            // 1. Eğer bir önceki satırda print varsa onu al.
+            // 2. Yoksa değişken adını al.
+            // 3. O da yoksa "Girdi Değeri" de.
             let label = lastPrint;
-            if (!label) {
-                 // Label yoksa değişken ismini kullan (örn: "satir")
+            if (!label || label.trim() === "") {
                  label = varName ? varName : "Girdi Değeri";
             }
 
@@ -214,7 +212,7 @@ function analyzeCodeStructure(code) {
                 id: inputs.length,
                 label: label,
                 isDimension: isDim,
-                ref: varName, // Değişken referansını kaydet
+                ref: varName, 
                 value: "" 
             });
             lastPrint = null; // Tüketildi
@@ -290,9 +288,6 @@ function renderStage1() {
 
     const hasInputs = wizardState.configData.length > 0;
     const hasMatrix = !!wizardState.structure;
-
-    // GÜNCELLEME: Eğer input yoksa ama matris varsa, yine de uyarı verip devam ettiriyoruz.
-    // Ancak parser düzeltildiği için artık inputlar gelmeli.
     
     if (hasInputs) {
         wizardState.configData.forEach((item, index) => {
@@ -331,7 +326,7 @@ function renderStage1() {
         }, 100);
 
     } else if (!hasInputs && hasMatrix) {
-         info.innerHTML += "<br><br><span style='opacity:0.8'>🔹 Kodda değişken girişi (n, m vb.) tespit edilemedi.<br>Matris boyutları kod içinde sabit olabilir veya parser bulamamış olabilir.<br>Tabloyu doldurmak için devam ediniz.</span>";
+         info.innerHTML += "<br><br><span style='opacity:0.8'>🔹 Kodda değişken girişi tespit edilemedi.<br>Matris boyutları kod içinde sabit olabilir.<br>Tabloyu doldurmak için devam ediniz.</span>";
     } else {
         container.innerHTML = "<div class='log-error'>Girdi algılanamadı. Kodunuzu kontrol ediniz veya direkt çalıştırınız.</div>";
     }
@@ -372,8 +367,6 @@ function handleStage1Submit() {
         
         if ((wizardState.structure.rows || 0) <= 0) {
             const fallbackRow = parseInt(wizardState.structure.rowRef);
-            // Eğer parser değişkeni bulduysa ama kullanıcı girmediyse veya bulunamadıysa:
-            // Inputlardan gelen değerleri tekrar kontrol et
             if (!isNaN(fallbackRow) && fallbackRow > 0) {
                  wizardState.structure.rows = fallbackRow;
                  if(!wizardState.structure.cols) wizardState.structure.cols = fallbackRow; 
@@ -390,12 +383,8 @@ function handleStage1Submit() {
 
 function resolveStructureDimensions() {
     const s = wizardState.structure;
-    // Referansları (örn: 'n', 'satir') sayısal değerlere dönüştürmeyi dene
-    // Eğer 'rows' hala null ise, belki de rows bir sayı olarak girilmiştir (örn: new int[5][5])
     if (!s.rows && !isNaN(s.rowRef)) s.rows = parseInt(s.rowRef);
     if (!s.cols && !isNaN(s.colRef)) s.cols = parseInt(s.colRef);
-    
-    // Varsayılanlar
     if (!s.rows) s.rows = 0;
     if (!s.cols) s.cols = s.rows; 
     if (s.type === "3D" && !s.layers) s.layers = !isNaN(s.layerRef) ? parseInt(s.layerRef) : 1;

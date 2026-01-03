@@ -78,13 +78,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="output-content custom-scrollbar" id="outputContent">
-                    <div class="log-system init-log">
-                        [SYSTEM] KODASISTANIM v6.0 Ready.<br>
-                        [SYSTEM] Editor (Left) & Terminal (Right) Sync.<br>
-                        <span class="blink-cursor">_</span>
-                    </div>
-                </div>
+                <div class="output-content custom-scrollbar" id="outputContent"></div>
             </div>
         </div>
 
@@ -162,5 +156,10 @@
 
     <div id="toast" class="cyber-toast">İşlem Tamamlandı</div>
     <script src="script.js"></script>
+    <script>
+        function clearOutput() {
+            document.getElementById('outputContent').innerHTML = '';
+        }
+    </script>
 </body>
 </html>
