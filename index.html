@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KODASISTANIM | Ultimate Enterprise IDE</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+</head>
+<body>
+    <canvas id="binaryBg"></canvas>
+    
+    <div class="screen-vignette"></div>
+
+    <div class="app-container glass-panel">
+        <header class="glass-header">
+            <div class="brand-area">
+                <div class="logo-wrapper glow-effect">
+                    <span style="font-size: 24px;">🚀</span>
+                </div>
+                <div class="brand-text">
+                    KOD<span class="brand-accent">ASISTANIM</span>
+                    <span class="brand-edition">ULTIMATE</span>
+                </div>
+            </div>
+            
+            <div class="toolbar-right">
+                <div class="select-wrapper cyber-select-wrapper">
+                    <select id="languageSelector" class="lang-select">
+                        <option value="java" selected>☕ Java 15</option>
+                        <option value="python">🐍 Python 3.10</option>
+                        <option value="javascript">📜 NodeJS 18</option>
+                        <option value="csharp">🔷 C# (Mono)</option>
+                        <option value="cpp">🦖 C++ (GCC)</option>
+                        <option value="go">🐹 Go 1.19</option>
+                        <option value="typescript">📘 TypeScript</option>
+                    </select>
+                </div>
+
+                <button id="themeToggle" class="btn-icon glow-hover" title="Tema Değiştir">
+                    <span id="themeIcon">🌙</span>
+                </button>
+                
+                <button id="suggestionToggle" class="btn-icon glow-hover" title="Otomatik Tamamlamayı Aç/Kapat">
+                    <span id="suggestionIcon">💡</span>
+                </button>
+
+                <button id="runBtn" class="btn btn-primary cyber-button-large" onclick="initiateExecution()">
+                    <span class="btn-content">
+                        <span class="icon-play">▶</span> 
+                        <span class="btn-text">SİSTEMİ BAŞLAT</span>
+                    </span>
+                    <div class="btn-glitch-effect"></div>
+                </button>
+            </div>
+        </header>
+
+        <div class="workspace">
+            <div id="editor-wrapper">
+                <div id="editor-container"></div>
+            </div>
+            
+            <div id="output-panel">
+                <div class="panel-header">
+                    <div class="header-left">
+                        <button class="btn-text cyber-link" onclick="clearOutput()">
+                            <span class="icon-trash">🗑️</span> TEMİZLE
+                        </button>
+                    </div>
+                    <div class="header-title">
+                        <span class="terminal-icon">_></span> TERMINAL
+                    </div>
+                    <div class="header-right">
+                        <div class="live-indicator">
+                            <span class="blink-dot"></span> ONLINE
+                        </div>
+                    </div>
+                </div>
+                <div class="output-content custom-scrollbar" id="outputContent">
+                    <div class="log-system init-log">
+                        [SYSTEM] KODASISTANIM v6.0 Ready.<br>
+                        [SYSTEM] Editor (Left) & Terminal (Right) Sync.<br>
+                        <span class="blink-cursor">_</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-bar glass-footer">
+            <div class="status-left">
+                <span class="status-item icon-code"></span>
+                <span id="cursorPos">Ln 1, Col 1</span>
+                <span class="status-separator">|</span>
+                <span id="fileType">UTF-8</span>
+            </div>
+
+            <div class="status-center">
+                <span class="engineer-signature neon-text-anim">DEVELOPED BY UMITCANCINAR</span>
+            </div>
+
+            <div class="status-right">
+                <div id="loadingIndicator" class="cyber-loader" style="display:none;">
+                    <div class="scanner"></div>
+                </div>
+                <span id="statusMsg" class="status-badge-ready">SİSTEM HAZIR</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="inputModal" class="modal-overlay backdrop-blur">
+        <div class="modal-box cyber-modal">
+            <div class="modal-bg-glow"></div>
+            <div class="modal-header">
+                <div class="header-main-title">
+                    <div class="warning-icon-wrapper pulse-animation">
+                        <span class="warning-icon">⚠️</span>
+                    </div>
+                    <div class="title-text">
+                        <span>PROGRAM GİRDİSİ</span>
+                        <span class="subtitle">Veri girişi bekleniyor...</span>
+                    </div>
+                </div>
+                <button class="modal-close cyber-close" onclick="closeModal()">×</button>
+            </div>
+            
+            <div class="modal-body custom-scrollbar">
+                <div id="modalDescContainer" class="info-panel">
+                    <p id="modalDesc" class="info-text">Program aşağıdaki verileri talep ediyor:</p>
+                </div>
+                
+                <div id="dynamicInputs" class="dynamic-inputs-container"></div>
+
+                <div id="fallbackWrapper" class="fallback-container hidden-input">
+                    <div class="matrix-editor-frame glow-border">
+                        <div class="input-toolbar">
+                            <span class="input-hint">⬇️ HAM VERİ GİRİŞİ</span>
+                            <button class="btn-wizard cyber-button-small" onclick="runMatrixWizard()">
+                                ✨ MATRİS SİHİRBAZI
+                            </button>
+                        </div>
+                        <div class="editor-wrapper-inner">
+                             <div class="line-numbers">
+                                <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+                            </div>
+                            <textarea id="fallbackInput" class="matrix-textarea custom-scrollbar" placeholder="Verileri buraya yazınız..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn btn-secondary cyber-button-secondary" onclick="closeModal()">İPTAL</button>
+                <button class="btn btn-primary cyber-button-action" onclick="submitInput()">
+                    <span class="btn-content"><span class="btn-text">GÖNDER VE ÇALIŞTIR</span></span>
+                    <div class="shimmer"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="cyber-toast">İşlem Tamamlandı</div>
+    <script src="script.js"></script>
+</body>
+</html>
