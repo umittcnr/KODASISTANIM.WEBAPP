@@ -394,45 +394,6 @@ body.light-mode .cyber-modal { border-color: #ccc; box-shadow: 0 10px 40px rgba(
 body.light-mode .modal-input { background: #fff; border-color: #ccc; color: #000; }
 .modal-input:focus { border-color: var(--primary-color); box-shadow: 0 0 10px rgba(0,255,157,0.1); }
 
-/* FALLBACK / MATRIX EDITOR */
-.matrix-editor-frame {
-    border: 1px solid var(--glass-border);
-    border-radius: 6px;
-    overflow: hidden;
-    margin-top: 10px;
-}
-.input-toolbar {
-    background: rgba(255,255,255,0.05);
-    padding: 8px 15px;
-    display: flex; justify-content: space-between; align-items: center;
-    border-bottom: 1px solid var(--glass-border);
-}
-.input-hint { font-size: 0.75rem; font-weight: 700; color: var(--accent-color); }
-
-.editor-wrapper-inner { display: flex; position: relative; }
-.line-numbers {
-    width: 30px;
-    background: rgba(0,0,0,0.3);
-    color: #555;
-    font-family: var(--font-code);
-    font-size: 0.9rem;
-    text-align: right;
-    padding: 10px 5px;
-    line-height: 1.5;
-}
-.matrix-textarea {
-    flex: 1;
-    min-height: 120px;
-    background: #000;
-    color: #0f0;
-    border: none;
-    padding: 10px;
-    font-family: var(--font-code);
-    line-height: 1.5;
-    resize: vertical;
-}
-body.light-mode .matrix-textarea { background: #fff; color: #000; }
-
 .modal-footer {
     padding: 20px;
     border-top: 1px solid var(--glass-border);

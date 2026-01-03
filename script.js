@@ -118,7 +118,7 @@ require(['vs/editor/editor.main'], function () {
     document.getElementById('languageSelector')?.addEventListener('change', changeLanguage);
 });
 
-// --- CORE LOGIC: ADVANCED PARSER (Fix: Captures Full Strings) ---
+// --- CORE LOGIC: ADVANCED PARSER (GÜNCELLENDİ: Console.log Desteği) ---
 
 function initiateExecution() {
     const code = editor.getValue();
@@ -148,9 +148,8 @@ function analyzeCodeStructure(code) {
     
     let lastPrint = null; 
     
-    // DÜZELTME: Regex artık parantez içindeki TÜM içeriği yakalar.
-    // Tırnak işaretlerini daha sonra temizleriz.
-    const printRegex = /(?:print|Write)(?:ln|f)?\s*\((.*)\)/;
+    // DÜZELTME: Regex artık console.log, fmt.Print ve diğer dilleri de kapsıyor.
+    const printRegex = /(?:print|Write|console\.log|fmt\.Print|System\.out\.print)(?:ln|f)?\s*\((.*)\)/;
     const inputRegex = /(\.next|input\(|ReadLine|cin\s*>>|fmt\.Scan)/;
     
     // 1. Matris Yapısı (Opsiyonel tespit)
@@ -196,8 +195,8 @@ function analyzeCodeStructure(code) {
             let rawContent = pMatch[1];
             
             // Tırnakları ve +'ları temizle
-            // Bu regex: Tırnakları ve string birleştirme operatörlerini (+) siler, metni birleştirir.
-            let cleanContent = rawContent.replace(/["']|(\s*\+\s*)/g, '').trim();
+            // Bu regex: Tırnakları, string birleştirme operatörlerini (+) ve sondaki noktalı virgülleri siler.
+            let cleanContent = rawContent.replace(/["']|(\s*\+\s*)|(;)/g, '').trim();
             
             // Eğer boş değilse son yazdırılan olarak kaydet
             if (cleanContent.length > 0) {
@@ -206,8 +205,13 @@ function analyzeCodeStructure(code) {
         }
 
         if (inputRegex.test(line)) {
+            // FIX: Fonksiyon tanımlarını (function input() gibi) yanlışlıkla girdi olarak algılamayı önle
+            if (cleanLine.includes("function input") || cleanLine.includes("def input")) {
+                continue;
+            }
+
             const loopCheck = /for\s*\(|while\s*\(/.test(line) || braceLevel > 2;
-            const assignmentMatch = line.match(/(?:int|double|long|var)?\s*(\w+)\s*=\s*/);
+            const assignmentMatch = line.match(/(?:int|double|long|var|const|let)?\s*(\w+)\s*=\s*/);
             let varName = assignmentMatch ? assignmentMatch[1] : null;
 
             let isDim = false;
@@ -303,9 +307,6 @@ function renderStage1() {
             div.className = 'input-group';
             
             const defaultValue = item.value || '';
-            
-            // Eğer içerik çok uzunsa textarea göster, değilse input
-            // GÜNCELLEME: Tüm soruları standart input yapıyoruz, CSS ile genişletiyoruz.
             
             div.innerHTML = `
                 <label class="input-label">
@@ -413,9 +414,6 @@ function renderStage2() {
     info.innerHTML = `<strong>Aşama 2/2:</strong> Matris Verileri (${s.type}: ${s.layers||1}x${s.rows}x${s.cols})`;
     container.appendChild(info);
 
-    const fb = document.getElementById('fallbackWrapper');
-    if(fb) fb.style.display = 'none';
-
     generateGridUI(container, s.layers || 1, s.rows, s.cols, s.type);
     renderFooterButtons("ÇALIŞTIR", submitFinalInput, true);
 }
@@ -495,10 +493,6 @@ function showModal() {
 
 window.closeModal = function() {
     document.getElementById('inputModal').classList.remove('active');
-}
-
-window.runMatrixWizard = function() {
-    initiateExecution();
 }
 
 async function executeCode(stdinData) {
