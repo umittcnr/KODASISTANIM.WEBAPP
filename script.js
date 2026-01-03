@@ -47,7 +47,6 @@ style.innerHTML = `
 document.head.appendChild(style);
 
 // --- KOD ŞABLONLARI ---
-// GÜNCELLEME: Java şablonu isteğinize göre değiştirildi.
 const templates = {
     python: `import sys\n\ndef main():\n    print("Merhaba Dünya!")\n\nif __name__ == "__main__":\n    main()`,
     java: `import java.util.Scanner;
@@ -56,10 +55,10 @@ public class Main {
     public static void main(String[] args) {
         Scanner input = new Scanner(System.in);
         
-        System.out.print("Adiniz nedir? ");
+        System.out.println("Adiniz nedir? ");
         String ad = input.nextLine();
         
-        System.out.print("Yasiniz kac? ");
+        System.out.println("Yasiniz kac? ");
         int yas = input.nextInt();
         
         System.out.println("Merhaba " + ad + ", " + yas + " yasindasin.");
@@ -97,7 +96,7 @@ require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-e
 
 require(['vs/editor/editor.main'], function () {
     editor = monaco.editor.create(document.getElementById('editor-container'), {
-        value: templates.java, // Artık basit Java kodu ile başlayacak
+        value: templates.java,
         language: 'java',
         theme: 'vs-dark',
         automaticLayout: true,
@@ -119,7 +118,7 @@ require(['vs/editor/editor.main'], function () {
     document.getElementById('languageSelector')?.addEventListener('change', changeLanguage);
 });
 
-// --- CORE LOGIC: PARSER ---
+// --- CORE LOGIC: ADVANCED PARSER (Fix: Captures Full Strings) ---
 
 function initiateExecution() {
     const code = editor.getValue();
@@ -148,7 +147,10 @@ function analyzeCodeStructure(code) {
     let matrixStructure = null;
     
     let lastPrint = null; 
-    const printRegex = /(?:print|Write)(?:ln|f)?\s*\(\s*["']([^"']*)["']/;
+    
+    // DÜZELTME: Regex artık parantez içindeki TÜM içeriği yakalar.
+    // Tırnak işaretlerini daha sonra temizleriz.
+    const printRegex = /(?:print|Write)(?:ln|f)?\s*\((.*)\)/;
     const inputRegex = /(\.next|input\(|ReadLine|cin\s*>>|fmt\.Scan)/;
     
     // 1. Matris Yapısı (Opsiyonel tespit)
@@ -187,9 +189,20 @@ function analyzeCodeStructure(code) {
         if (cleanLine.includes("System.in")) continue;
         if (!cleanLine) continue;
 
+        // GELİŞMİŞ LABEL YAKALAMA
         const pMatch = line.match(printRegex);
         if (pMatch) {
-            lastPrint = pMatch[1];
+            // Ham içerik: "Adiniz: " + isim
+            let rawContent = pMatch[1];
+            
+            // Tırnakları ve +'ları temizle
+            // Bu regex: Tırnakları ve string birleştirme operatörlerini (+) siler, metni birleştirir.
+            let cleanContent = rawContent.replace(/["']|(\s*\+\s*)/g, '').trim();
+            
+            // Eğer boş değilse son yazdırılan olarak kaydet
+            if (cleanContent.length > 0) {
+                lastPrint = cleanContent;
+            }
         }
 
         if (inputRegex.test(line)) {
@@ -209,7 +222,7 @@ function analyzeCodeStructure(code) {
 
             let label = lastPrint;
             if (!label || label.trim() === "") {
-                 label = varName ? varName : "Girdi Değeri";
+                 label = varName ? (varName + " Değeri") : "Girdi Değeri";
             }
 
             inputs.push({
@@ -219,7 +232,7 @@ function analyzeCodeStructure(code) {
                 ref: varName, 
                 value: "" 
             });
-            lastPrint = null; 
+            lastPrint = null; // Tüketildi
         }
         braceLevel += (openBraces - closeBraces);
     }
@@ -289,15 +302,13 @@ function renderStage1() {
             const div = document.createElement('div');
             div.className = 'input-group';
             
-            // DÜZELTME: Cevap kutusu artık boş geliyor, kod içermiyor.
             const defaultValue = item.value || '';
             
-            // Textarea veya Input seçimi (Otomatik)
-            // Eğer soru metni çok uzunsa veya kullanıcı uzun girdi yapacaksa textarea daha iyi olabilir.
-            // Şimdilik standart input kullanıyoruz, CSS ile genişleteceğiz.
+            // Eğer içerik çok uzunsa textarea göster, değilse input
+            // GÜNCELLEME: Tüm soruları standart input yapıyoruz, CSS ile genişletiyoruz.
             
             div.innerHTML = `
-                <label class="input-label" style="white-space: pre-wrap; word-wrap: break-word;">
+                <label class="input-label">
                     ${index+1}. ${item.label} 
                     ${item.isDimension ? '<span style="color:#00ff9d; font-weight:bold;">(Tablo Boyutu)</span>' : ''}
                 </label>

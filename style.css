@@ -377,6 +377,7 @@ body.light-mode .cyber-modal { border-color: #ccc; box-shadow: 0 10px 40px rgba(
     font-family: var(--font-code);
     white-space: pre-wrap; /* Uzun sorular alt satıra geçsin */
     word-wrap: break-word;
+    text-align: left; /* GÜNCELLEME: Ortalamayı engellemek için */
 }
 
 .modal-input {
