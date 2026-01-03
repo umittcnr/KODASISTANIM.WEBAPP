@@ -1,7 +1,55 @@
+// --- CSS INJECTION (NEON UI & ANIMATIONS) ---
+const style = document.createElement('style');
+style.innerHTML = `
+    .neon-btn-primary {
+        background: #00ff9d !important; 
+        color: #000 !important; 
+        border: none !important; 
+        padding: 10px 24px !important;
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700 !important; 
+        text-transform: uppercase;
+        cursor: pointer; 
+        border-radius: 4px;
+        box-shadow: 0 0 10px rgba(0, 255, 157, 0.4);
+        transition: all 0.3s ease;
+    }
+    .neon-btn-primary:hover { 
+        box-shadow: 0 0 20px #00ff9d, 0 0 40px #00ff9d; 
+        transform: translateY(-1px);
+    }
+    .neon-btn-secondary {
+        background: transparent !important; 
+        color: #fff !important; 
+        border: 1px solid rgba(255,255,255,0.3) !important; 
+        padding: 10px 20px !important;
+        font-family: 'JetBrains Mono', monospace;
+        cursor: pointer; 
+        border-radius: 4px;
+        transition: all 0.3s ease;
+        opacity: 0.8;
+    }
+    .neon-btn-secondary:hover { 
+        background: rgba(255,255,255,0.1) !important; 
+        border-color: #fff !important;
+        opacity: 1;
+        box-shadow: 0 0 10px rgba(255,255,255,0.2);
+    }
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        padding-top: 15px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        margin-top: 15px;
+    }
+`;
+document.head.appendChild(style);
+
 // --- KOD ŞABLONLARI ---
 const templates = {
     python: `import sys\n\ndef main():\n    print("Merhaba Dünya!")\n\nif __name__ == "__main__":\n    main()`,
-    java: `import java.util.Scanner;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner scanner = new Scanner(System.in);\n        \n        // SENARYO: Sabit Boyutlu Matris (3x3)\n        int[][] depo = new int[3][3];\n        System.out.println("Depo Stoklarını Giriniz (3x3):");\n        \n        for(int i=0; i<3; i++) {\n            for(int j=0; j<3; j++) {\n                depo[i][j] = scanner.nextInt();\n            }\n        }\n        \n        System.out.println("Stoklar Kaydedildi.");\n    }\n}`,
+    java: `import java.util.Scanner;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner scanner = new Scanner(System.in);\n        \n        // SENARYO: Boolean Testi\n        System.out.println("Gece Modu Acilsin mi? (true/false):");\n        boolean isNightMode = scanner.nextBoolean();\n\n        System.out.println("Hassasiyet Ayari (0.1 - 1.0):");\n        double sensitivity = scanner.nextDouble();\n\n        System.out.println("Matris Boyutu (n):");\n        int n = scanner.nextInt();\n        \n        int[][] ekran = new int[n][n];\n        System.out.println("Piksel Verileri:");\n        \n        for(int i=0; i<n; i++) {\n            for(int j=0; j<n; j++) {\n                ekran[i][j] = scanner.nextInt();\n            }\n        }\n        \n        System.out.println("Islem Tamam.");\n    }\n}`,
     javascript: `console.log("Merhaba Dünya! (NodeJS)");`,
     csharp: `using System;\n\npublic class Program {\n    public static void Main() {\n        Console.WriteLine("Merhaba Dünya! (C#)");\n    }\n}`,
     cpp: `#include <iostream>\n\nint main() {\n    std::cout << "Merhaba Dünya! (C++)" << std::endl;\n    return 0;\n}`,
@@ -41,7 +89,7 @@ require(['vs/editor/editor.main'], function () {
         fontSize: 14,
         fontFamily: 'JetBrains Mono',
         quickSuggestions: true,
-        minimap: { enabled: false },
+        minimap: { enabled: true }, // GÜNCELLEME: Minimap (sağdaki küçük yazılar) açıldı
         cursorBlinking: "smooth",
         cursorSmoothCaretAnimation: "on"
     });
@@ -56,12 +104,10 @@ require(['vs/editor/editor.main'], function () {
     document.getElementById('languageSelector')?.addEventListener('change', changeLanguage);
 });
 
-// --- CORE LOGIC: PARSER (Advanced Scope & Ghost Input Fix) ---
+// --- CORE LOGIC: PARSER (Fixed for False Positives) ---
 
 function initiateExecution() {
     const code = editor.getValue();
-    
-    // Input ihtiyacı var mı?
     const needsInput = /Scanner|input\(|cin|ReadLine|fmt\.Scan/.test(code);
 
     if (!needsInput) {
@@ -90,7 +136,7 @@ function analyzeCodeStructure(code) {
     const printRegex = /(?:print|Write)(?:ln)?\s*\(\s*["'](.*?)["']\s*\)/;
     const inputRegex = /(\.next|input\(|ReadLine|cin\s*>>|fmt\.Scan)/;
     
-    // 1. Matris Yapısını ve Boyutları Yakala
+    // 1. Matris Yapısı
     const arrayRegex = /new\s+\w+\s*\[\s*(.*?)\s*\](?:\s*\[\s*(.*?)\s*\])?(?:\s*\[\s*(.*?)\s*\])?/;
     const arrayMatch = code.match(arrayRegex);
 
@@ -113,7 +159,7 @@ function analyzeCodeStructure(code) {
         [d1, d2, d3].forEach(d => { if (d && isNaN(d)) dimVars.add(d); });
     }
 
-    // 2. Satır Satır Analiz (Derinlik Kontrolü)
+    // 2. Satır Analizi
     let braceLevel = 0; 
 
     for (let line of lines) {
@@ -150,8 +196,12 @@ function analyzeCodeStructure(code) {
             let isDim = false;
             let dimRef = null;
 
+            // FIX: Label stringini kontrol etmeyi bıraktık.
+            // Sadece kod satırında tam kelime olarak (int n =) geçiyor mu ona bakıyoruz.
             dimVars.forEach(v => {
-                 if (label.includes(v) || line.includes(v)) {
+                 const regex = new RegExp(`\\b${v}\\b`); 
+                 // SADECE kod satırını kontrol et, label'ı değil!
+                 if (regex.test(line)) {
                      isDim = true;
                      dimRef = v;
                  }
@@ -161,7 +211,8 @@ function analyzeCodeStructure(code) {
                 id: inputs.length,
                 label: label,
                 isDimension: isDim,
-                ref: dimRef
+                ref: dimRef,
+                value: "" 
             });
             lastPrint = "Girdi Değeri:"; 
         }
@@ -171,7 +222,6 @@ function analyzeCodeStructure(code) {
     
     return { inputs, matrixStructure };
 }
-
 
 // --- WIZARD UI LOGIC ---
 
@@ -184,7 +234,10 @@ function openInputWizard() {
     renderStage1();
 }
 
-function renderFooterButtons(text, onClickHandler) {
+/**
+ * Modern Neon Footer Butonları
+ */
+function renderFooterButtons(primaryText, primaryAction, showBack = false) {
     let footer = document.querySelector('.modal-footer');
     if (!footer) {
         const modalContent = document.querySelector('.modal-content') || document.getElementById('inputModal');
@@ -194,17 +247,29 @@ function renderFooterButtons(text, onClickHandler) {
     }
     footer.innerHTML = '';
     
+    // İptal Butonu
     const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'secondary-btn'; 
+    cancelBtn.className = 'neon-btn-secondary'; 
     cancelBtn.innerText = 'İPTAL';
     cancelBtn.onclick = closeModal;
-    cancelBtn.style.marginRight = '10px';
     
+    // Geri Butonu
+    if (showBack) {
+        const backBtn = document.createElement('button');
+        backBtn.className = 'neon-btn-secondary';
+        backBtn.innerText = '← GERİ';
+        backBtn.onclick = () => {
+            renderStage1();
+        };
+        footer.appendChild(backBtn);
+    }
+
+    // Aksiyon Butonu (Neon)
     const actionBtn = document.createElement('button');
-    actionBtn.className = 'primary-btn';
+    actionBtn.className = 'neon-btn-primary';
     actionBtn.id = 'wizardActionBtn';
-    actionBtn.innerText = text;
-    actionBtn.onclick = onClickHandler;
+    actionBtn.innerText = primaryText;
+    actionBtn.onclick = primaryAction;
     
     footer.appendChild(cancelBtn);
     footer.appendChild(actionBtn);
@@ -224,7 +289,7 @@ function renderStage1() {
     const hasMatrix = !!wizardState.structure;
 
     if (!hasInputs && hasMatrix) {
-        info.innerHTML += "<br><br><span style='opacity:0.8'>🔹 Bu program için ön tanımlı değişken (n, m vb.) gerekmiyor.<br>Boyutlar kod içerisinde sabit tanımlanmış.<br><br>Tabloyu doldurmak için devam ediniz.</span>";
+        info.innerHTML += "<br><br><span style='opacity:0.8'>🔹 Bu program için ön tanımlı değişken (n, m vb.) gerekmiyor.<br>Tabloyu doldurmak için devam ediniz.</span>";
     } 
     else if (hasInputs) {
         wizardState.configData.forEach((item, index) => {
@@ -233,24 +298,43 @@ function renderStage1() {
             div.innerHTML = `
                 <label class="input-label">
                     ${index+1}. ${item.label} 
-                    ${item.isDimension ? '<span style="color:var(--accent-color)">(Tablo Boyutu)</span>' : ''}
+                    ${item.isDimension ? '<span style="color:#00ff9d; font-weight:bold;">(Tablo Boyutu)</span>' : ''}
                 </label>
                 <input type="text" class="modal-input stage1-input" 
                        data-index="${index}" 
                        data-ref="${item.ref || ''}"
+                       value="${item.value || ''}" 
                        placeholder="${item.isDimension ? 'Örn: 3' : 'Değer...'}">
             `;
             container.appendChild(div);
         });
+        
+        // ENTER TUŞU DESTEĞİ
+        setTimeout(() => {
+            const inputs = container.querySelectorAll('.stage1-input');
+            inputs.forEach((input, idx) => {
+                input.onkeydown = (e) => {
+                    if (e.key === "Enter") {
+                        e.preventDefault(); // Form submit engelle
+                        if (idx < inputs.length - 1) {
+                            inputs[idx+1].focus();
+                        } else {
+                            handleStage1Submit();
+                        }
+                    }
+                };
+            });
+            if(inputs.length > 0) inputs[0].focus();
+        }, 100);
+
     } else if (!hasInputs && !hasMatrix) {
         container.innerHTML = "<div class='log-error'>Girdi algılanamadı. Kodunuzu kontrol ediniz veya direkt çalıştırınız.</div>";
     }
 
     const btnText = hasMatrix ? "DEVAM ET (TABLO OLUŞTUR)" : "GÖNDER VE ÇALIŞTIR";
-    renderFooterButtons(btnText, handleStage1Submit);
+    renderFooterButtons(btnText, handleStage1Submit, false); // Geri butonu yok
 
     showModal();
-    if(hasInputs) setTimeout(() => container.querySelector('input')?.focus(), 100);
 }
 
 function handleStage1Submit() {
@@ -259,6 +343,12 @@ function handleStage1Submit() {
     
     inputs.forEach(inp => {
         const val = inp.value.trim();
+        const idx = parseInt(inp.dataset.index);
+        
+        if (wizardState.configData[idx]) {
+            wizardState.configData[idx].value = val;
+        }
+
         configPayload += val + "\n";
         
         const ref = inp.dataset.ref;
@@ -316,7 +406,8 @@ function renderStage2() {
 
     generateGridUI(container, s.layers || 1, s.rows, s.cols, s.type);
     
-    renderFooterButtons("ÇALIŞTIR", submitFinalInput);
+    // Geri butonu AKTİF
+    renderFooterButtons("ÇALIŞTIR", submitFinalInput, true);
 }
 
 function generateGridUI(container, layers, rows, cols, type) {
@@ -436,9 +527,6 @@ async function executeCode(stdinData) {
             const out = data.run.stdout || "";
             const err = data.run.stderr || "";
             
-            // --- OUTPUT FORMATTING UPDATE ---
-            // 'white-space: pre' boşlukları korur (Tablo hizalaması için şart)
-            // 'overflow-x: auto' taşan satırlar için kaydırma çubuğu ekler (wrapping önler)
             if(out) outputDiv.innerHTML += `<div class="log-success" style="white-space: pre; overflow-x: auto; font-family: 'JetBrains Mono', monospace;">${out}</div>`;
             if(err) outputDiv.innerHTML += `<div class="log-error" style="white-space: pre;">${err}</div>`;
             
