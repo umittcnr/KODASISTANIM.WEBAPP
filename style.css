@@ -367,7 +367,17 @@ body.light-mode .cyber-modal { border-color: #ccc; box-shadow: 0 10px 40px rgba(
 
 /* INPUT GROUP */
 .input-group { margin-bottom: 15px; animation: slideIn 0.4s ease; }
-.input-label { display: block; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600; color: var(--secondary-color); font-family: var(--font-code); }
+/* GÜNCELLEME: Uzun sorular için metin kaydırma eklendi */
+.input-label { 
+    display: block; 
+    margin-bottom: 8px; 
+    font-size: 0.85rem; 
+    font-weight: 600; 
+    color: var(--secondary-color); 
+    font-family: var(--font-code);
+    white-space: pre-wrap; /* Uzun sorular alt satıra geçsin */
+    word-wrap: break-word;
+}
 
 .modal-input {
     width: 100%;

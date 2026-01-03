@@ -47,9 +47,24 @@ style.innerHTML = `
 document.head.appendChild(style);
 
 // --- KOD ŞABLONLARI ---
+// GÜNCELLEME: Java şablonu isteğinize göre değiştirildi.
 const templates = {
     python: `import sys\n\ndef main():\n    print("Merhaba Dünya!")\n\nif __name__ == "__main__":\n    main()`,
-    java: `import java.util.Scanner;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner scanner = new Scanner(System.in);\n        \n        // SENARYO: Boolean Testi\n        System.out.println("Gece Modu Acilsin mi? (true/false):");\n        boolean isNightMode = scanner.nextBoolean();\n\n        System.out.println("Hassasiyet Ayari (0.1 - 1.0):");\n        double sensitivity = scanner.nextDouble();\n\n        System.out.println("Matris Boyutu (n):");\n        int n = scanner.nextInt();\n        \n        int[][] ekran = new int[n][n];\n        System.out.println("Piksel Verileri:");\n        \n        for(int i=0; i<n; i++) {\n            for(int j=0; j<n; j++) {\n                ekran[i][j] = scanner.nextInt();\n            }\n        }\n        \n        System.out.println("Islem Tamam.");\n    }\n}`,
+    java: `import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner input = new Scanner(System.in);
+        
+        System.out.print("Adiniz nedir? ");
+        String ad = input.nextLine();
+        
+        System.out.print("Yasiniz kac? ");
+        int yas = input.nextInt();
+        
+        System.out.println("Merhaba " + ad + ", " + yas + " yasindasin.");
+    }
+}`,
     javascript: `console.log("Merhaba Dünya! (NodeJS)");`,
     csharp: `using System;\n\npublic class Program {\n    public static void Main() {\n        Console.WriteLine("Merhaba Dünya! (C#)");\n    }\n}`,
     cpp: `#include <iostream>\n\nint main() {\n    std::cout << "Merhaba Dünya! (C++)" << std::endl;\n    return 0;\n}`,
@@ -82,7 +97,7 @@ require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-e
 
 require(['vs/editor/editor.main'], function () {
     editor = monaco.editor.create(document.getElementById('editor-container'), {
-        value: templates.java,
+        value: templates.java, // Artık basit Java kodu ile başlayacak
         language: 'java',
         theme: 'vs-dark',
         automaticLayout: true,
@@ -104,7 +119,7 @@ require(['vs/editor/editor.main'], function () {
     document.getElementById('languageSelector')?.addEventListener('change', changeLanguage);
 });
 
-// --- CORE LOGIC: PARSER (Fixed: Absolute Prompt Capture) ---
+// --- CORE LOGIC: PARSER ---
 
 function initiateExecution() {
     const code = editor.getValue();
@@ -133,13 +148,10 @@ function analyzeCodeStructure(code) {
     let matrixStructure = null;
     
     let lastPrint = null; 
-    // GÜNCELLEME: Regex artık çok daha esnek.
-    // print("... ile başlayan ve tırnak içinde biten her şeyi yakalar.
-    // [^"]* kısmı tırnak hariç her şey demek.
     const printRegex = /(?:print|Write)(?:ln|f)?\s*\(\s*["']([^"']*)["']/;
     const inputRegex = /(\.next|input\(|ReadLine|cin\s*>>|fmt\.Scan)/;
     
-    // 1. Matris Yapısı
+    // 1. Matris Yapısı (Opsiyonel tespit)
     const arrayRegex = /new\s+\w+\s*\[\s*(.*?)\s*\](?:\s*\[\s*(.*?)\s*\])?(?:\s*\[\s*(.*?)\s*\])?/;
     const arrayMatch = code.match(arrayRegex);
 
@@ -175,17 +187,13 @@ function analyzeCodeStructure(code) {
         if (cleanLine.includes("System.in")) continue;
         if (!cleanLine) continue;
 
-        // Prompt Yakalama (GELİŞMİŞ)
         const pMatch = line.match(printRegex);
         if (pMatch) {
-            // Yakalanan metin (tırnak içi)
             lastPrint = pMatch[1];
         }
 
-        // Input Yakalama
         if (inputRegex.test(line)) {
             const loopCheck = /for\s*\(|while\s*\(/.test(line) || braceLevel > 2;
-            
             const assignmentMatch = line.match(/(?:int|double|long|var)?\s*(\w+)\s*=\s*/);
             let varName = assignmentMatch ? assignmentMatch[1] : null;
 
@@ -199,10 +207,6 @@ function analyzeCodeStructure(code) {
                 continue; 
             }
 
-            // Etiket Belirleme Önceliği:
-            // 1. Eğer bir önceki satırda print varsa onu al.
-            // 2. Yoksa değişken adını al.
-            // 3. O da yoksa "Girdi Değeri" de.
             let label = lastPrint;
             if (!label || label.trim() === "") {
                  label = varName ? varName : "Girdi Değeri";
@@ -215,9 +219,8 @@ function analyzeCodeStructure(code) {
                 ref: varName, 
                 value: "" 
             });
-            lastPrint = null; // Tüketildi
+            lastPrint = null; 
         }
-
         braceLevel += (openBraces - closeBraces);
     }
     
@@ -235,9 +238,6 @@ function openInputWizard() {
     renderStage1();
 }
 
-/**
- * Modern Neon Footer Butonları
- */
 function renderFooterButtons(primaryText, primaryAction, showBack = false) {
     let footer = document.querySelector('.modal-footer');
     if (!footer) {
@@ -248,24 +248,19 @@ function renderFooterButtons(primaryText, primaryAction, showBack = false) {
     }
     footer.innerHTML = '';
     
-    // İptal Butonu
     const cancelBtn = document.createElement('button');
     cancelBtn.className = 'neon-btn-secondary'; 
     cancelBtn.innerText = 'İPTAL';
     cancelBtn.onclick = closeModal;
     
-    // Geri Butonu
     if (showBack) {
         const backBtn = document.createElement('button');
         backBtn.className = 'neon-btn-secondary';
         backBtn.innerText = '← GERİ';
-        backBtn.onclick = () => {
-            renderStage1();
-        };
+        backBtn.onclick = () => { renderStage1(); };
         footer.appendChild(backBtn);
     }
 
-    // Aksiyon Butonu (Neon)
     const actionBtn = document.createElement('button');
     actionBtn.className = 'neon-btn-primary';
     actionBtn.id = 'wizardActionBtn';
@@ -293,27 +288,34 @@ function renderStage1() {
         wizardState.configData.forEach((item, index) => {
             const div = document.createElement('div');
             div.className = 'input-group';
+            
+            // DÜZELTME: Cevap kutusu artık boş geliyor, kod içermiyor.
+            const defaultValue = item.value || '';
+            
+            // Textarea veya Input seçimi (Otomatik)
+            // Eğer soru metni çok uzunsa veya kullanıcı uzun girdi yapacaksa textarea daha iyi olabilir.
+            // Şimdilik standart input kullanıyoruz, CSS ile genişleteceğiz.
+            
             div.innerHTML = `
-                <label class="input-label">
+                <label class="input-label" style="white-space: pre-wrap; word-wrap: break-word;">
                     ${index+1}. ${item.label} 
                     ${item.isDimension ? '<span style="color:#00ff9d; font-weight:bold;">(Tablo Boyutu)</span>' : ''}
                 </label>
                 <input type="text" class="modal-input stage1-input" 
                        data-index="${index}" 
                        data-ref="${item.ref || ''}"
-                       value="${item.value || ''}" 
-                       placeholder="${item.isDimension ? 'Örn: 3' : 'Değer...'}">
+                       value="${defaultValue}" 
+                       placeholder="${item.isDimension ? 'Örn: 3' : 'Cevabınızı buraya yazın...'}">
             `;
             container.appendChild(div);
         });
         
-        // ENTER TUŞU DESTEĞİ
         setTimeout(() => {
             const inputs = container.querySelectorAll('.stage1-input');
             inputs.forEach((input, idx) => {
                 input.onkeydown = (e) => {
                     if (e.key === "Enter") {
-                        e.preventDefault(); // Form submit engelle
+                        e.preventDefault(); 
                         if (idx < inputs.length - 1) {
                             inputs[idx+1].focus();
                         } else {
@@ -326,7 +328,7 @@ function renderStage1() {
         }, 100);
 
     } else if (!hasInputs && hasMatrix) {
-         info.innerHTML += "<br><br><span style='opacity:0.8'>🔹 Kodda değişken girişi tespit edilemedi.<br>Matris boyutları kod içinde sabit olabilir.<br>Tabloyu doldurmak için devam ediniz.</span>";
+         info.innerHTML += "<br><br><span style='opacity:0.8'>🔹 Değişken girişi tespit edilemedi. Tabloyu doldurmak için devam ediniz.</span>";
     } else {
         container.innerHTML = "<div class='log-error'>Girdi algılanamadı. Kodunuzu kontrol ediniz veya direkt çalıştırınız.</div>";
     }
@@ -353,7 +355,6 @@ function handleStage1Submit() {
         
         const ref = inp.dataset.ref;
         if (ref && wizardState.structure) {
-            // Eşleşen boyutu güncelle
             if (wizardState.structure.rowRef === ref) wizardState.structure.rows = parseInt(val);
             if (wizardState.structure.colRef === ref) wizardState.structure.cols = parseInt(val);
             if (wizardState.structure.layerRef === ref) wizardState.structure.layers = parseInt(val);
@@ -364,16 +365,15 @@ function handleStage1Submit() {
 
     if (wizardState.structure) {
         resolveStructureDimensions();
-        
         if ((wizardState.structure.rows || 0) <= 0) {
-            const fallbackRow = parseInt(wizardState.structure.rowRef);
-            if (!isNaN(fallbackRow) && fallbackRow > 0) {
+             const fallbackRow = parseInt(wizardState.structure.rowRef);
+             if (!isNaN(fallbackRow) && fallbackRow > 0) {
                  wizardState.structure.rows = fallbackRow;
                  if(!wizardState.structure.cols) wizardState.structure.cols = fallbackRow; 
-            } else {
-                 alert("Lütfen geçerli pozitif matris boyutları giriniz! (Kod analizi boyutları tespit edemedi)");
+             } else {
+                 alert("Lütfen geçerli pozitif matris boyutları giriniz!");
                  return;
-            }
+             }
         }
         renderStage2();
     } else {
@@ -406,8 +406,6 @@ function renderStage2() {
     if(fb) fb.style.display = 'none';
 
     generateGridUI(container, s.layers || 1, s.rows, s.cols, s.type);
-    
-    // Geri butonu AKTİF
     renderFooterButtons("ÇALIŞTIR", submitFinalInput, true);
 }
 
@@ -458,8 +456,6 @@ function handleGridNavigation(e, currentInput) {
     }
 }
 
-// --- SUBMISSION ---
-
 window.submitFinalInput = function() {
     if (wizardState.stage === 1) {
         const inputs = document.querySelectorAll('.wizard-cell');
@@ -475,8 +471,6 @@ window.submitFinalInput = function() {
     closeModal();
     executeCode(finalPayload);
 }
-
-// --- SYSTEM UTILS ---
 
 function setupModal(title, desc) {
     document.querySelector('.title-text span:first-child').innerText = title;
@@ -544,7 +538,6 @@ async function executeCode(stdinData) {
     }
 }
 
-// UI Helpers
 function toggleSuggestions() {
     areSuggestionsEnabled = !areSuggestionsEnabled;
     editor.updateOptions({ quickSuggestions: areSuggestionsEnabled });
@@ -572,7 +565,6 @@ function showToast(msg) {
     setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// Matrix Background
 (function() {
     const c = document.getElementById('binaryBg');
     if(!c) return;
