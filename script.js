@@ -43,32 +43,88 @@ style.innerHTML = `
         border-top: 1px solid rgba(255,255,255,0.1);
         margin-top: 15px;
     }
+    /* Loop Hint Style */
+    .loop-hint-badge {
+        display: inline-block;
+        background: rgba(255, 0, 157, 0.15);
+        color: #ff009d;
+        font-size: 0.75rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 0, 157, 0.3);
+        margin-left: 8px;
+        vertical-align: middle;
+    }
 `;
 document.head.appendChild(style);
 
 // --- KOD ŞABLONLARI ---
 const templates = {
-    python: `import sys\n\ndef main():\n    print("Merhaba Dünya!")\n\nif __name__ == "__main__":\n    main()`,
-    java: `import java.util.Scanner;
+    // PYTHON
+    python: `import sys
 
+def main():
+    print("Merhaba Dunya! (Python)")
+    
+    # Ornek girdi alma:
+    # isim = input("Adiniz nedir? ")
+    # print(f"Merhaba {isim}")
+
+if __name__ == "__main__":
+    main()`,
+
+    // JAVA (Bizim Fixlediğimiz Sürüm)
+    java: `import java.util.Scanner;
 public class Main {
     public static void main(String[] args) {
         Scanner input = new Scanner(System.in);
         
-        System.out.println("Adiniz nedir? ");
-        String ad = input.nextLine();
+        System.out.println("Dunyaya mesajiniz nedir?");
+        String mesaj = input.nextLine();
+           
+        System.out.println("Mesajiniz iletildi: " + mesaj);
         
-        System.out.println("Yasiniz kac? ");
-        int yas = input.nextInt();
-        
-        System.out.println("Merhaba " + ad + ", " + yas + " yasindasin.");
     }
 }`,
-    javascript: `console.log("Merhaba Dünya! (NodeJS)");`,
-    csharp: `using System;\n\npublic class Program {\n    public static void Main() {\n        Console.WriteLine("Merhaba Dünya! (C#)");\n    }\n}`,
-    cpp: `#include <iostream>\n\nint main() {\n    std::cout << "Merhaba Dünya! (C++)" << std::endl;\n    return 0;\n}`,
-    go: `package main\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Merhaba Dünya! (Go)")\n}`,
-    typescript: `const message: string = "Merhaba Dünya! (TS)";\nconsole.log(message);`
+
+    // JAVASCRIPT
+    javascript: `console.log("Merhaba Dünya! (NodeJS)");
+    
+// Not: NodeJS ortaminda calisir.
+// Girdi almak icin 'readline' modulu kullanilir.`,
+
+    // C#
+    csharp: `using System;
+
+public class Program {
+    public static void Main() {
+        Console.WriteLine("Merhaba Dünya! (C#)");
+        
+        // Console.Write("Bir sayi girin: ");
+        // string girdi = Console.ReadLine();
+        // Console.WriteLine("Girdiniz: " + girdi);
+    }
+}`,
+
+    // C++
+    cpp: `#include <iostream>
+
+int main() {
+    std::cout << "Merhaba Dünya! (C++)" << std::endl;
+    return 0;
+}`,
+
+    // GO
+    go: `package main
+import "fmt"
+
+func main() {
+    fmt.Println("Merhaba Dünya! (Go)")
+}`,
+
+    // TYPESCRIPT
+    typescript: `const message: string = "Merhaba Dünya! (TS)";
+console.log(message);`
 };
 
 const apiLanguageMap = {
@@ -95,30 +151,43 @@ let wizardState = {
 require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' }});
 
 require(['vs/editor/editor.main'], function () {
+    // 1. EDITÖRÜ OLUŞTUR
     editor = monaco.editor.create(document.getElementById('editor-container'), {
-        value: templates.java,
+        value: templates.java, // Varsayılan Java ile başla
         language: 'java',
         theme: 'vs-dark',
         automaticLayout: true,
+        minimap: { enabled: false },
         fontSize: 14,
-        fontFamily: 'JetBrains Mono',
-        quickSuggestions: true,
-        minimap: { enabled: true },
-        cursorBlinking: "smooth",
-        cursorSmoothCaretAnimation: "on"
+        fontFamily: "'JetBrains Mono', monospace",
+        scrollBeyondLastLine: false,
     });
 
+    // 2. DİL DEĞİŞTİRME DİNLEYİCİSİ (FIX BURADA!)
+    // Dil seçicisine 'change' olayı ekliyoruz. Değişince changeLanguage çalışacak.
+    const langSelector = document.getElementById('languageSelector');
+    if (langSelector) {
+        langSelector.addEventListener('change', changeLanguage);
+    }
+
+    // 3. KOMUTLAR VE DİĞER AYARLAR
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function() {
         initiateExecution();
     });
     
-    // UI Listeners
+    editor.onDidChangeCursorPosition((e) => {
+        const satir = e.position.lineNumber;
+        const sutun = e.position.column;
+        const yaziAlani = document.getElementById('cursorPos') || document.querySelector('.status-bar-right span') || document.querySelector('.footer span');
+        if (yaziAlani) {
+            yaziAlani.innerText = `Ln ${satir}, Col ${sutun}`;
+        }
+    });
+    
     document.getElementById('suggestionToggle')?.addEventListener('click', toggleSuggestions);
-    document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
-    document.getElementById('languageSelector')?.addEventListener('change', changeLanguage);
 });
 
-// --- CORE LOGIC: ADVANCED PARSER (GÜNCELLENDİ: Console.log Desteği) ---
+// --- CORE LOGIC: ADVANCED PARSER ---
 
 function initiateExecution() {
     const code = editor.getValue();
@@ -141,104 +210,136 @@ function initiateExecution() {
     openInputWizard();
 }
 
+/**
+ * PROFESYONEL KOD ANALİZ MOTORU v6.0 (Ghost Input Fix)
+ */
 function analyzeCodeStructure(code) {
-    const lines = code.split('\n');
-    const inputs = []; 
+    let cleanCode = code
+        .replace(/\/\*[\s\S]*?\*\//g, '') 
+        .replace(/\/\/.*$/gm, '');
+
+    const lines = cleanCode.split('\n');
+    const inputs = [];
     let matrixStructure = null;
+    let matrixVarName = null;
     
+    let scannerVarName = "input"; 
+    const scannerMatch = cleanCode.match(/Scanner\s+(\w+)\s*=\s*new\s+Scanner/);
+    if (scannerMatch) scannerVarName = scannerMatch[1];
+
+    const strictInputRegex = new RegExp(
+        `(\\b${scannerVarName}\\.(next|nextInt|nextDouble|nextLine|nextBoolean)\\b)` + 
+        `|(\\bConsole\\.ReadLine\\b)` + 
+        `|(\\binput\\s*\\()` +           
+        `|(\\bcin\\s*>>)` +              
+        `|(\\bfmt\\.Scan)`               
+    );
+
+    const printRegex = /(?:print|Write|console\.log|fmt\.Print|System\.out\.print)(?:ln|f)?\s*\((.*)\)/;
     let lastPrint = null; 
     
-    // DÜZELTME: Regex artık console.log, fmt.Print ve diğer dilleri de kapsıyor.
-    const printRegex = /(?:print|Write|console\.log|fmt\.Print|System\.out\.print)(?:ln|f)?\s*\((.*)\)/;
-    const inputRegex = /(\.next|input\(|ReadLine|cin\s*>>|fmt\.Scan)/;
+    const matrixDeclRegex = /(?:int|double|String)\s*\[\s*\]\s*\[\s*\]\s*(\w+)\s*=\s*new\s+\w+\s*\[\s*(\d+)\s*\](?:\s*\[\s*(\d+)\s*\])?/;
+    const matrixMatch = code.match(matrixDeclRegex);
     
-    // 1. Matris Yapısı (Opsiyonel tespit)
-    const arrayRegex = /new\s+\w+\s*\[\s*(.*?)\s*\](?:\s*\[\s*(.*?)\s*\])?(?:\s*\[\s*(.*?)\s*\])?/;
-    const arrayMatch = code.match(arrayRegex);
-
-    let dimVars = new Set();
-    if (arrayMatch) {
-        let d1 = arrayMatch[1]?.trim(); 
-        let d2 = arrayMatch[2]?.trim(); 
-        let d3 = arrayMatch[3]?.trim(); 
-
-        matrixStructure = {
-            type: d3 ? "3D" : (d2 ? "2D" : "1D"),
-            rowRef: d3 ? d2 : d1,
-            colRef: d3 ? d3 : d2,
-            layerRef: d3 ? d1 : null,
-            rows: (d3 ? d2 : d1) && !isNaN(d3 ? d2 : d1) ? parseInt(d3 ? d2 : d1) : null,
-            cols: (d3 ? d3 : d2) && !isNaN(d3 ? d3 : d2) ? parseInt(d3 ? d3 : d2) : null,
-            layers: d3 && !isNaN(d1) ? parseInt(d1) : 1
-        };
-
-        [d1, d2, d3].forEach(d => { if (d && isNaN(d)) dimVars.add(d); });
+    if (matrixMatch) {
+         matrixVarName = matrixMatch[1]; 
+         matrixStructure = {
+            type: matrixMatch[3] ? "2D" : "1D", 
+            rowRef: matrixMatch[2],
+            colRef: matrixMatch[3],
+            rows: parseInt(matrixMatch[2]), 
+            cols: matrixMatch[3] ? parseInt(matrixMatch[3]) : 0
+         };
+    } else {
+        const arrayRegex = /new\s+\w+\s*\[\s*(\d+)\s*\](?:\s*\[\s*(\d+)\s*\])?/;
+        const arrayMatch = code.match(arrayRegex);
+        if (arrayMatch) {
+            matrixStructure = {
+                type: arrayMatch[2] ? "2D" : "1D",
+                rowRef: arrayMatch[1],
+                colRef: arrayMatch[2],
+                rows: parseInt(arrayMatch[1]), 
+                cols: arrayMatch[2] ? parseInt(arrayMatch[2]) : 0
+            };
+        }
     }
 
-    // 2. Satır Analizi
-    let braceLevel = 0; 
+    let currentBraceLevel = 0; 
+    let loopStack = []; 
 
-    for (let line of lines) {
-        const cleanLine = line.trim();
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
+        if (!line) continue;
+
         const openBraces = (line.match(/\{/g) || []).length;
         const closeBraces = (line.match(/\}/g) || []).length;
-        
-        if (cleanLine.startsWith("//") || cleanLine.startsWith("import") || cleanLine.startsWith("package")) continue;
-        if (cleanLine.includes("new Scanner")) continue;
-        if (cleanLine.includes("System.in")) continue;
-        if (!cleanLine) continue;
+        const isLoopStart = /^(?:for|while|do)\b/.test(line);
 
-        // GELİŞMİŞ LABEL YAKALAMA
+        if (isLoopStart) {
+            loopStack.push(currentBraceLevel + 1);
+        }
+
         const pMatch = line.match(printRegex);
         if (pMatch) {
-            // Ham içerik: "Adiniz: " + isim
             let rawContent = pMatch[1];
+            const quoteMatch = rawContent.match(/"([^"]+)"/);
             
-            // Tırnakları ve +'ları temizle
-            // Bu regex: Tırnakları, string birleştirme operatörlerini (+) ve sondaki noktalı virgülleri siler.
-            let cleanContent = rawContent.replace(/["']|(\s*\+\s*)|(;)/g, '').trim();
-            
-            // Eğer boş değilse son yazdırılan olarak kaydet
-            if (cleanContent.length > 0) {
-                lastPrint = cleanContent;
+            if (quoteMatch && quoteMatch[1].length > 1) {
+                lastPrint = quoteMatch[1].replace(/[:=]/g, '').trim();
+            } else {
+                let content = rawContent.replace(/["';+]/g, '').trim();
+                content = content.replace(/\(.*?\)/g, '');
+                if (content.length > 0) lastPrint = content.trim();
             }
         }
 
-        if (inputRegex.test(line)) {
-            // FIX: Fonksiyon tanımlarını (function input() gibi) yanlışlıkla girdi olarak algılamayı önle
-            if (cleanLine.includes("function input") || cleanLine.includes("def input")) {
-                continue;
-            }
-
-            const loopCheck = /for\s*\(|while\s*\(/.test(line) || braceLevel > 2;
-            const assignmentMatch = line.match(/(?:int|double|long|var|const|let)?\s*(\w+)\s*=\s*/);
-            let varName = assignmentMatch ? assignmentMatch[1] : null;
-
-            let isDim = false;
-            if (varName && dimVars.has(varName)) {
-                isDim = true;
-            }
-
-            if (loopCheck && !isDim) {
+        if (strictInputRegex.test(line)) {
+            const isNextLine = line.includes("nextLine");
+            const hasAssignment = line.includes("=");
+            if (isNextLine && !hasAssignment && !line.includes("print")) {
                 lastPrint = null; 
                 continue; 
             }
 
-            let label = lastPrint;
-            if (!label || label.trim() === "") {
-                 label = varName ? (varName + " Değeri") : "Girdi Değeri";
+            const assignMatch = line.match(/(?:int|String|double|float|var|char|boolean)?\s*(\w+|(?:\w+\[.*?\]))\s*=/);
+            let varName = assignMatch ? assignMatch[1] : null;
+            if (varName && varName.includes("[")) varName = varName.split("[")[0]; 
+            
+            if (matrixStructure && matrixStructure.rows > 0) {
+                if (varName && varName === matrixVarName) {
+                    lastPrint = null;
+                    continue; 
+                }
+                if (!varName && loopStack.length > 0 && currentBraceLevel >= loopStack[loopStack.length-1]) {
+                    lastPrint = null;
+                    continue;
+                }
             }
+
+            let label = lastPrint;
+            if (!label || label.length < 2) {
+                label = varName ? (varName + " Değeri") : "Girdi";
+            }
+
+            const isInLoop = loopStack.length > 0 && currentBraceLevel + openBraces >= loopStack[loopStack.length - 1];
 
             inputs.push({
                 id: inputs.length,
-                label: label,
-                isDimension: isDim,
-                ref: varName, 
+                label: label, 
+                isDimension: false, 
+                isLoopInput: isInLoop, 
+                ref: varName,
                 value: "" 
             });
-            lastPrint = null; // Tüketildi
+
+            lastPrint = null; 
         }
-        braceLevel += (openBraces - closeBraces);
+
+        currentBraceLevel += (openBraces - closeBraces);
+
+        if (loopStack.length > 0 && currentBraceLevel < loopStack[loopStack.length - 1]) {
+            loopStack.pop();
+        }
     }
     
     return { inputs, matrixStructure };
@@ -247,12 +348,13 @@ function analyzeCodeStructure(code) {
 // --- WIZARD UI LOGIC ---
 
 function openInputWizard() {
-    setupModal("GİRDİ SİHİRBAZI", "Program çalıştırılmadan önce gerekli veriler toplanıyor.");
+    setupModal("GİRDİ SİHİRBAZI", "Program çalıştırılmadan önce veriler toplanıyor.");
     
     const toggleContainer = document.querySelector('.input-mode-toggle');
     if(toggleContainer) toggleContainer.style.display = 'none';
 
     renderStage1();
+    showModal();
 }
 
 function renderFooterButtons(primaryText, primaryAction, showBack = false) {
@@ -293,13 +395,28 @@ function renderStage1() {
     const container = document.getElementById('dynamicInputs');
     container.innerHTML = '';
     
+    const hasInputs = wizardState.configData.length > 0;
+    const hasFixedMatrix = wizardState.structure && wizardState.structure.rows > 0;
+    
+    if (!hasInputs && hasFixedMatrix) {
+        const info = document.createElement('div');
+        info.className = 'wizard-step-info';
+        info.innerHTML = `<strong>Aşama 1/2:</strong> Hazırlık`;
+        container.appendChild(info);
+
+        const msg = document.createElement('div');
+        msg.style.cssText = "padding: 20px; text-align: center; color: #aaa;";
+        msg.innerHTML = "📝 Bu bölümde girilecek veri yok.<br>Matris tablosunu oluşturmak için devam ediniz.";
+        container.appendChild(msg);
+
+        renderFooterButtons("DEVAM ET (TABLO OLUŞTUR)", () => { renderStage2(); }, false);
+        return;
+    }
+
     const info = document.createElement('div');
     info.className = 'wizard-step-info';
-    info.innerHTML = `<strong>Aşama 1/2:</strong> Değişken Tanımları & Boyutlar`;
+    info.innerHTML = `<strong>Aşama 1/2:</strong> Değişken Tanımları & Veri Girişi`;
     container.appendChild(info);
-
-    const hasInputs = wizardState.configData.length > 0;
-    const hasMatrix = !!wizardState.structure;
     
     if (hasInputs) {
         wizardState.configData.forEach((item, index) => {
@@ -307,17 +424,28 @@ function renderStage1() {
             div.className = 'input-group';
             
             const defaultValue = item.value || '';
-            
+            let placeholderText = "Cevabınızı buraya yazın...";
+            let loopHint = "";
+
+            if (item.isDimension) {
+                placeholderText = "Örn: 3 (Tablo Boyutu)";
+            } else if (item.isLoopInput) {
+                placeholderText = "DÖNGÜ: Değerleri birer boşluk ara ile girin (Örn: Ali Veli Ayşe)";
+                loopHint = `<span class="loop-hint-badge">DÖNGÜ (Liste)</span>`;
+            }
+
             div.innerHTML = `
                 <label class="input-label">
                     ${index+1}. ${item.label} 
-                    ${item.isDimension ? '<span style="color:#00ff9d; font-weight:bold;">(Tablo Boyutu)</span>' : ''}
+                    ${item.isDimension ? '<span style="color:#00ff9d; font-weight:bold; margin-left:5px;">(Tablo Boyutu)</span>' : ''}
+                    ${loopHint}
                 </label>
                 <input type="text" class="modal-input stage1-input" 
                        data-index="${index}" 
                        data-ref="${item.ref || ''}"
+                       data-is-loop="${item.isLoopInput}"
                        value="${defaultValue}" 
-                       placeholder="${item.isDimension ? 'Örn: 3' : 'Cevabınızı buraya yazın...'}">
+                       placeholder="${placeholderText}">
             `;
             container.appendChild(div);
         });
@@ -338,69 +466,61 @@ function renderStage1() {
             });
             if(inputs.length > 0) inputs[0].focus();
         }, 100);
+    } 
 
-    } else if (!hasInputs && hasMatrix) {
-         info.innerHTML += "<br><br><span style='opacity:0.8'>🔹 Değişken girişi tespit edilemedi. Tabloyu doldurmak için devam ediniz.</span>";
-    } else {
-        container.innerHTML = "<div class='log-error'>Girdi algılanamadı. Kodunuzu kontrol ediniz veya direkt çalıştırınız.</div>";
-    }
-
-    const btnText = hasMatrix ? "DEVAM ET (TABLO OLUŞTUR)" : "GÖNDER VE ÇALIŞTIR";
+    const btnText = hasFixedMatrix ? "DEVAM ET (TABLO OLUŞTUR)" : "GÖNDER VE ÇALIŞTIR";
     renderFooterButtons(btnText, handleStage1Submit, false); 
-
-    showModal();
 }
 
 function handleStage1Submit() {
     const inputs = document.querySelectorAll('.stage1-input');
     let configPayload = "";
     
-    inputs.forEach(inp => {
-        const val = inp.value.trim();
-        const idx = parseInt(inp.dataset.index);
-        
-        if (wizardState.configData[idx]) {
-            wizardState.configData[idx].value = val;
-        }
+    let loopBuffer = []; 
 
-        configPayload += val + "\n";
-        
-        const ref = inp.dataset.ref;
-        if (ref && wizardState.structure) {
-            if (wizardState.structure.rowRef === ref) wizardState.structure.rows = parseInt(val);
-            if (wizardState.structure.colRef === ref) wizardState.structure.cols = parseInt(val);
-            if (wizardState.structure.layerRef === ref) wizardState.structure.layers = parseInt(val);
+    const flushLoopBuffer = () => {
+        if (loopBuffer.length === 0) return "";
+        let result = "";
+        const maxLen = Math.max(...loopBuffer.map(arr => arr.length));
+        for (let i = 0; i < maxLen; i++) {
+            loopBuffer.forEach(arr => {
+                if (i < arr.length) {
+                    result += arr[i] + "\n"; 
+                }
+            });
         }
-    });
+        loopBuffer = []; 
+        return result;
+    };
+
+    if (inputs.length > 0) {
+        inputs.forEach(inp => {
+            const val = inp.value.trim();
+            const idx = parseInt(inp.dataset.index);
+            const isLoop = inp.dataset.isLoop === "true";
+            
+            if (wizardState.configData[idx]) {
+                wizardState.configData[idx].value = val;
+            }
+
+            if (isLoop) {
+                const items = val.split(/\s+/).filter(x => x.length > 0);
+                loopBuffer.push(items);
+            } else {
+                configPayload += flushLoopBuffer();
+                configPayload += val + "\n";
+            }
+        });
+        configPayload += flushLoopBuffer();
+    }
 
     wizardState.finalPayloadParts.config = configPayload;
 
-    if (wizardState.structure) {
-        resolveStructureDimensions();
-        if ((wizardState.structure.rows || 0) <= 0) {
-             const fallbackRow = parseInt(wizardState.structure.rowRef);
-             if (!isNaN(fallbackRow) && fallbackRow > 0) {
-                 wizardState.structure.rows = fallbackRow;
-                 if(!wizardState.structure.cols) wizardState.structure.cols = fallbackRow; 
-             } else {
-                 alert("Lütfen geçerli pozitif matris boyutları giriniz!");
-                 return;
-             }
-        }
+    if (wizardState.structure && wizardState.structure.rows > 0) {
         renderStage2();
     } else {
         submitFinalInput();
     }
-}
-
-function resolveStructureDimensions() {
-    const s = wizardState.structure;
-    if (!s.rows && !isNaN(s.rowRef)) s.rows = parseInt(s.rowRef);
-    if (!s.cols && !isNaN(s.colRef)) s.cols = parseInt(s.colRef);
-    if (!s.rows) s.rows = 0;
-    if (!s.cols) s.cols = s.rows; 
-    if (s.type === "3D" && !s.layers) s.layers = !isNaN(s.layerRef) ? parseInt(s.layerRef) : 1;
-    if (s.type === "1D") { s.cols = s.rows; s.rows = 1; }
 }
 
 function renderStage2() {
@@ -558,9 +678,11 @@ function toggleTheme() {
 }
 
 function changeLanguage() {
-    const lang = this.value;
+    const lang = document.getElementById('languageSelector').value;
     monaco.editor.setModelLanguage(editor.getModel(), lang);
-    editor.setValue(templates[lang]);
+    if(templates[lang]) {
+        editor.setValue(templates[lang]);
+    }
 }
 
 function showToast(msg) {
